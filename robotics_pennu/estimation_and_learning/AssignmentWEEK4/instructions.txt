@@ -1,0 +1,27 @@
+Overview
+
+You will complete a function that takes the parameters and sensor data as input, and returns a set of poses in time that reconstructs the motion of the robot. The signature of the function is given as:
+
+function M = particleLocalization(ranges, angles, map, params)
+
+Implement your function to take the parameters as input and output the coordinates of the robot. Please DO NOT hardcode parameters inside the function.
+
+Expected Output
+
+Your function should return a 2D array of the x positions, y positions, and angles of the robot over time.
+
+example_test.m is provided to help visualize your result.
+
+To submit your result to our server, you need to run the script runeval in your MATLAB command window. Please specify the path where the encrypted test data are located. A script will then evaluate your particleLocalization function and generate an output file, SubmissionLocalization.mat, to be uploaded to the Coursera web UI. You may submit your result multiple times, and we will count only the highest score towards your grade. The score reflects how close your (x, y, a) trajectory is to the true trajectory.
+
+Tips
+
+In MATLAB, write a localization algorithm with a particle filter. 
+
+In the registration process, you should consider downsampling the raw data of 1081 LIDAR range points in order to speed up computation.
+
+You may consider the free space in your correlation function as an advanced technique
+
+You can assume that the robot did not move at all for the motion model. In this case, the particles should move only with Gaussian noise.
+
+The initial pose of the robot is given and it will be passed as one of the param fields. (param is the input argument).

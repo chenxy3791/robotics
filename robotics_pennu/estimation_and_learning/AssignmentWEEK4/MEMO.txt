@@ -1,0 +1,52 @@
+1) 为什么中途会突然大幅度偏离正确路线，越过边界进入非法区呢？
+1-) Is the threshold of nEffectiveSample for resampling too appropriate?
+    降低这个门限变得更加恶劣了。
+        
+   Is the step for angle subsampling too large?
+   Is the implementation of correlation scoring calculation appropriate?
+   Is the implementation resampling appropriate?
+   Is it necessary to re-initialize weight after resampling?
+   
+
+========== From the forum ==========
+   
+Matt's suggestions:   
+   
+(1) Move each particle in the direction of its heading (a small, random gaussian amount) each update and then added the random system noise.
+
+(2) Use the best particle as the pose update, as suggested in the assignment code comments, instead of any sort of weighted average
+
+(3) To resample, use the MATLAB function "interp1" set to the 'previous' option, with my "good" weights and using samples drawn uniformly from 0-1. 
+
+Matt's suggestions to Xiang:   
+
+My intuition with this problem is that the lack of any odometry sensor data is a significant handicap. Lacking this data, maybe we need Brensham's or a Kalman filter to approach perfection.
+
+I looked over your code, and i have some guesses on how you might be able to improve. I think you might be right that your heading update rule might be causing you problems. If I'm reading your code correctly, you are trying two different rules: (1) adjust the current heading by a gaussian random variable of sigma 0.1 or 0.15; (2) pick a heading at random from 0-360 with no regard to previous value. i think you've figured out the issues with approach #1 - you will never be able to make a hairpin turn, since you'll never see a large enough heading change in your randomized heading adjustment. And your #2 is just going nuts.
+
+In my opinion, approach #2 is misguided. You need to use the prior heading information to get any tracking at all - the vast majority of the heading updates are small because the sampling rate of the robot's position is high. You might be able to get this method to track if you use a ton of particles - while my successful submission used 100 particles, I did run some tests at 1000 particles. I did see some improvements at times.
+
+I used an approach like #1, but my sigma was substantially higher - the successful submission used 0.6. That allowed most heading updates to be close to the prior heading for good general tracking, but enough variance that you could reasonably expect to see a few particles with a heading update over +- 1.0 (less than two sigmas of deviation) for the hairpin turn case.
+
+The other place i would suggest you look into is the number of particles you resample each time. If I'm reading your code correctly, you are simply resampling all 80 particles each iteration based on all their normalized weights. I used the "number effective" metric (square of the weight sum over the sum of squared weights) from the lectures to determine how many particles to resample from. When I monitored this value, it dropped rather low at times - sometimes i had only one good particle - maybe that was on the hairpin turns. (Also, if I'm reading correctly, you never throw out any sort of 'bad' particles - but that might be OK, since you're resampling them with low probability).
+
+One final suggestion. Again, if I'm reading your code correctly, you adjusted the map scoring method. You are scoring a true positive range value as a 0.5 and a false positive as a 0. I made a similar adjustment while working on this problem, and ultimately abandoned it. I realized i was scoring a false positive the same way as a null reading (i.e. a range 'out of bounds'). I didn't think at the time that there were enough 'out of bounds' readings to affect the results, but once I changed things back so that a false positive was a penalty rather than a 0, my tracking improved substantially. (To be fair, i was decimating the volume of my range readings uniformly. If you're paring them back based on distance, you may be OK with your scoring system.) (Also, if you do reinstate a negative weight of any kind in your system, please be sure and get rid of all negative scoring particles even before you calculate the 'number of effective' particles - i got hung up on this detail for awhile)
+
+MILIND.V.BHAT suggestion to Xiang:
+
+1. Work on your heading update, are 99% right.I would suggest you use Matts suggestion of using Approach #1. It is one of the most critical part of your solution.
+
+2. Second is reject all the point that go out of bounds. I see in your code you are still letting them pass through.
+
+3. Re sampling is right , I also used randsample method , and a very similar approach so you're doing good. Just as matt suggested try checking when the effective number of Samples drop, it can be near the curve.
+
+From the code I see you are very close , about 98% close. You just have to tweak a few things here and there, the above suggestions and Matts suggestions should help you out. I understand solving this problem is tough but keep working on it , you'll get. I took the course two times to complete this specific assignment.
+
+Anh Trịnh · a year ago · 已编辑
+Hi Xiang, you probably already passed, but I think it's worth to point this out to the future struggler: Your code run well in practice.mat does not mean it will run well in runeval.m because the map data is quite different in testing.mat.
+
+If you're detecting free cell using map < 0 then it's totally wrong, because the map in testing.mat does not have any cell < 0.
+
+Thanks to Eduardo pointing out (and his reverse enginerring method is very helpful, too):
+
+https://www.coursera.org/learn/robotics-learning/discussions/weeks/4/threads/l0-HYpu7EeafhQ7ZE7wD9A
