@@ -33,17 +33,17 @@ param.init_pose = -init_pose; % chenxy: why take the negative?
 lidar_local = [ranges(:,1).*cos(scanAngles) -ranges(:,1).*sin(scanAngles)];
 
 
-% % The lidar result from the staring point. 
-% figure,
-% plot(0,0,'rs'); hold on;
-% plot(lidar_local(:,1),lidar_local(:,2),'.-');
-% axis equal;
-% set(gca,'YDir','reverse');
-% xlabel('x');
-% ylabel('y');
-% grid on;
-% title('Lidar measurement in the body frame');
-% hold off;
+% The lidar result from the staring point. 
+figure,
+plot(0,0,'rs'); hold on;
+plot(lidar_local(:,1),lidar_local(:,2),'.-');
+axis equal;
+set(gca,'YDir','reverse');
+xlabel('x');
+ylabel('y');
+grid on;
+title('Lidar measurement in the body frame');
+hold off;
 
 % figure, % NOTE: param.init_pose = [0,0,...]
 % plot(param.origin(1),param.origin(2),'rs'); hold on;
@@ -63,10 +63,9 @@ lidar_local = [ranges(:,1).*cos(scanAngles) -ranges(:,1).*sin(scanAngles)];
 % For a quicker test, you may take some hundreds frames as input arguments as
 % shown.
 tstart = tic;
-%ranges_used = ranges(:,1:1000);
 ranges_used = ranges(:,1:end);
 myPose = particleLocalization(ranges_used, scanAngles, M, param);
-%myPose = particleLocalization_xiang2(ranges_used, scanAngles, M, param);
+%myPose = particleLocalization_xiang(ranges_used, scanAngles, M, param);
 
 telapsed = toc(tstart);
 fprintf(1,'telapsed = %g for %d measurements\n',telapsed, size(ranges_used,2));

@@ -78,20 +78,10 @@ imagesc(map); hold on;
 
 [X,Y] =meshgrid([1:size(map,2)],[1:size(map,1)]);
 figure; plot3(X,Y,map);
+title('log odds of the original map');
 
-%% %% Plot LIDAR data for the starting position.
-%% lidar_global(:,1) =  (ranges(:,1).*cos(scanAngles + pose(3,1)) + pose(1,1))*param.resol + param.origin(1);
-%% lidar_global(:,2) = (-ranges(:,1).*sin(scanAngles + pose(3,1)) + pose(2,1))*param.resol + param.origin(2);
-%% 
-%% plot(lidar_global(:,1), lidar_global(:,2), 'g.'); 
-%% 
-%% 
-%% colormap('gray');
-%% axis equal;
-%% hold on;
-%% plot(pose(1,:)*param.resol+param.origin(1), ...
-%%     pose(2,:)*param.resol+param.origin(2), 'r.-');
-%%     
-%% plot(myPose(1,:)*param.resol+param.origin(1), ...
-%%     myPose(2,:)*param.resol+param.origin(2), 'y.-');    
+figure;
+M_remove_null = map(:);
+M_remove_null(M_remove_null==0.49) = [];
+hist(M_remove_null(:),50);
 

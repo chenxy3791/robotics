@@ -30,15 +30,18 @@ M = 100;                       % Please decide a reasonable number of M,
 % Create M number of particles
 P = repmat(myPose(:, 1), [1, M]);
 W = ones(1, M) / M;
+% ids = round(linspace(1, size(ranges, 1), 100)); % Sampling the scan angles to reduce computation load.
+ids = 1:10:size(ranges, 1); % Sampling the scan angles to reduce computation load.
+
 for j = 2:N    
+
+    dist = 0.025 + randn(1,M) * 0.1;
+    P(3, :) = P(3, :) + randn(1, M) * 0.15; %heading is the sum of the previous one plus a random value
+    P(1, :) = P(1, :) + dist .* cos(P(3, :));
+    P(2, :) = P(2, :) - dist .* sin(P(3, :));    
+            
     for i = 1:M
-        dist = 0.025 + randn(1,1) * 0.1;
-        heading = P(3, i) + randn(1, 1) * 0.15; %heading is the sum of the previous one plus a random value
-        P(1, i) = P(1, i) + dist * cos(heading);
-        P(2, i) = P(2, i) - dist * sin(heading);
-        P(3, i) = heading;
         
-        ids = randsample(size(ranges, 1), 100); %sample the lidar
         phi = P(3, i) + scanAngles(ids);
         
         x_occ = ranges(ids, j) .* cos(phi) + P(1, i);
@@ -76,8 +79,8 @@ for j = 2:N
     P_sorted = P(:, sort_ids);
     P_sample = P_sorted(:, 1:80);
     
-    %myPose(:, j) = P_sorted(:, 1);
-    myPose(:, j) = mean(P_sorted(:, 1:10), 2);  %The two methods show similar in results.
+    myPose(:, j) = P_sorted(:, 1);
+    %myPose(:, j) = mean(P_sorted(:, 1:10), 2);  %The two methods show similar in results.
     
     p_ids = randsample(80, M, 'true', W_sample);
     W = W_sample(p_ids');

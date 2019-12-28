@@ -24,28 +24,35 @@ myPose(:,1) = param.init_pose;
 
 % Decide the number of particles, M. Not confused with the outside M, which represents map.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-M = 100;                       % Please decide a reasonable number of M, 
+M = 100;                      % Please decide a reasonable number of M, 
                                % based on your experiment using the practice data.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Create M number of particles
-P = repmat(myPose(:,1), [1, M]); % All particle start from the same pose?
+P      = repmat(myPose(:,1), [1, M]); % All particle start from the same pose?
 Weight = (1.0/M)*ones(1,M);      % Equi-probability initialization
-idxs   = round(linspace(1, size(ranges, 1), 100)); % Sampling the scan angles to reduce computation load.
-
+idxs   = 1:10:size(ranges, 1); 
 for j = 2:N % You will start estimating myPose from j=2 using ranges(:,2).
 
     % 1) Propagate the particles     
-    dist    = 0.025   + randn(1,M) * 0.05;
-    P(3, :) = P(3, :) + randn(1,M) * 0.3;                      
+
+    %--Alternative I
+    % dist    = 0.025 + randn(1,M) * 0.01;    
+    % P(1, :) = P(1, :) + dist .* cos(P(3, :));
+    % P(2, :) = P(2, :) - dist .* sin(P(3, :));       
+    % P(3, :) = P(3, :) + randn(1, M) * 0.1; %heading is the sum of the previous one plus a random value
+    
+    %--Alternative II: x-y displacement are independent from orientation update.
+    dist    = 0.025 + randn(1,M) * 0.01;    
     P(1, :) = P(1, :) + dist .* cos(P(3, :));
-    P(2, :) = P(2, :) - dist .* sin(P(3, :));
-        
+    P(2, :) = P(2, :) - dist .* sin(P(3, :));       
+    P(3, :) = P(3, :) + randn(1, M) * 0.1; %heading is the sum of the previous one plus a random value
+
     % 2) Measurement Update 
     scoring = zeros(M,1);
 
     for m = 1:M    
         % 2-1) Find grid cells hit by the rays (in the grid map coordinate frame)    
-        pose = P(:,m);
+        pose    = P(:,m);
         angle   = scanAngles(idxs) + pose(3);    
         x_hit   =  ranges(idxs,j).*cos(angle) + pose(1);
         y_hit   = -ranges(idxs,j).*sin(angle) + pose(2);
@@ -66,12 +73,13 @@ for j = 2:N % You will start estimating myPose from j=2 using ranges(:,2).
         
         % If the updated position of the current particle is outside of map, set its weight to 0. 
         % This is equivalent to remove this particle.
-        if orig(1)<1 || orig(1)>size(map,2) || orig(2)<1 || orig(2)>size(map,1)
-            fprintf(1,'j=%d, m=%d, updated particle position outside of map\n', j,m);
-            Weight(m)  = 0;
-            scoring(m) = 0;
-            continue;
-        end    
+        % Seems not necessary.
+        %% if orig(1)<1 || orig(1)>size(map,2) || orig(2)<1 || orig(2)>size(map,1)
+        %%     fprintf(1,'j=%d, m=%d, updated particle position outside of map\n', j,m);
+        %%     Weight(m)  = 0;
+        %%     scoring(m) = 0;
+        %%     continue;
+        %% end    
 
         for k = 1:length(i_x_hit)                          
             % get cells in between            
@@ -84,21 +92,22 @@ for j = 2:N % You will start estimating myPose from j=2 using ranges(:,2).
 
         % 2-3) Calculate correlation scoring function
         %      Can we think it as something like cross-entropy?        
-        th1 = 0.5;% 55; % To be confirmed. From the original probabilistic map, it seems the threshold is around 0.5.
-        th2 = 0.49;% 45; % To be confirmed. From the original probabilistic map, it seems the threshold is around 0.5.
+        th  = 0.49; % Recovered from the map. 0.49 represents the threshold between occupied and free cells.
+        % th1 = 1.4;% 55; % To be confirmed. From the original probabilistic map, it seems the threshold is around 0.5.
+        % th2 = -0;% 45; % To be confirmed. From the original probabilistic map, it seems the threshold is around 0.5.
         for k = 1:length(ocu_cells)
-            if (map(ocu_cells(k)) > th1) % To be confirmed.
-                scoring(m) = scoring(m) + 10*(map(ocu_cells(k))-th1);
-            elseif(map(ocu_cells(k)) < th2)
-                scoring(m) = scoring(m) + 5*(map(ocu_cells(k))-th2);
+            if (map(ocu_cells(k)) > th) % probably occupied
+                scoring(m) = scoring(m) + 10 * (map(ocu_cells(k)) - th);
+            else                        % probably free
+                scoring(m) = scoring(m) + 5 * (map(ocu_cells(k)) - th);
             end    
         end
 
         for k = 1:length(free_cells)
-            if (map(free_cells(k)) < th2) % To be confirmed.
-                scoring(m) = scoring(m) + 1*(th2 - map(free_cells(k)));
-            elseif(map(free_cells(k)) > th1)
-                scoring(m) = scoring(m) + 5*(th1 - map(free_cells(k)));     
+            if (map(free_cells(k)) < th) % probably free
+                scoring(m) = scoring(m) - 1 * (map(free_cells(k)) - th);
+            elseif(map(free_cells(k)) > th)
+                scoring(m) = scoring(m) - 5 * (map(free_cells(k)) - th);     
             end
         end        
 
@@ -122,49 +131,26 @@ for j = 2:N % You will start estimating myPose from j=2 using ranges(:,2).
     P_sorted = P(:, sort_ids);
         
     %   3-2) Resampling.    
-    if(N_eff < 0.75*M) % To be confirmed
-        fprintf(1,'N_eff = %d; Resmapling...\n',N_eff);
-        % Weight(Weight<(1/M)) = 0;
-        % Weight = Weight/sum(Weight);
-        p_ids  = randsample(M, M, 'true', Weight);        
-        %Weight = Weight(p_ids');
+    if(N_eff < 0.8*M) % To be confirmed
+        fprintf(1,'j=%d; N_eff = %d; Wmax = %g;  Resmapling...\n',j, N_eff, maxW);
+        
+        p_ids  = randsample(N_eff, M, 'true', W_sorted(1:N_eff));                       
+        P      = P_sorted(:, p_ids');        
         Weight = (1.0/M)*ones(1,M);
-        P      = P(:, p_ids');        
-        
-        
-        
-        % nCandidate   = 10000;
-        % P_W_candidate  = zeros(4,nCandidate);
-        % num_assigned = 0;
-        % for m=1:1:M
-        %     num = round(nCandidate * Weight(m));
-        %     if num > 0
-        %         P_W_candidate(1:3,num_assigned+1:num_assigned+num) = repmat(P(:,m),1,num);
-        %         P_W_candidate(4,num_assigned+1:num_assigned+num) = repmat(Weight(m),1,num);
-        %         num_assigned = num_assigned + num;            
-        %     end    
-        % end
-        % 
-        % P_W    = P_W_candidate(:,randi(num_assigned,1,M));
-        % P      = P_W(1:3,:);
-        % %Weight = P_W(4,:);
-        % Weight = (1.0/M)*ones(1,M);
+                        
     end
     
     % 4) Visualize the pose on the map as needed
-    %% figure; scatter(P(1,:),P(2,:)); hold on;
-    %% plot(myPose(1,j),myPose(2,j),'rp', 'MarkerSize',20);
-    if mod(j,100)==0
-        fprintf(1,'j=%d\n',j);
-        
-        %figure;imagesc(map); hold on;
-        %colormap('gray'); axis equal; hold on;
-        %plot(myPose(1,:)*param.resol+param.origin(1), ...
-        %    myPose(2,:)*param.resol+param.origin(2), 'g.-');
-                
-        %figure; hist(Weight,20);
-        %pause
-    end        
+    %% if mod(j,200)==0
+    %%     fprintf(1,'j=%d\n',j);
+    %%     
+    %%     figure;imagesc(map); hold on;
+    %%     colormap('gray'); axis equal; hold on;
+    %%     plot(myPose(1,1:j)*param.resol+param.origin(1), ...
+    %%          myPose(2,1:j)*param.resol+param.origin(2), 'g.-');
+    %%                     
+    %%     pause
+    %% end        
 end
 
 end
